@@ -1,34 +1,37 @@
-from flask import Flask, request, jsonify
-from flask.wrappers import Request
+"""Flask entrypoint for the Job Searcher backend.
+
+This stays intentionally thin: it reads request parameters, delegates the actual
+work to the scraper package, and formats the result through the shared response
+helpers. All scraping and formatting logic lives outside this file.
+"""
+from flask import Flask, request
 from flask_cors import CORS
 
-## This file is the Flask GET API endpoint for the Backend PackHacks workshop.
-## We import flask and the getList function from the indeedScraper file we created.
-## @author Travis Walter - 3/16/2021
+import responses
+from scraper import ScraperError, get_jobs
+
 app = Flask(__name__)
 CORS(app)
 
-## This is the API GET @ endpoint /retrieveJobs that returns the list of jobs to the caller.
-## It uses the Indeed Scraper and returns the parsed information as JSON.
-@app.route('/retrieveJobs', methods=['GET'])
 
-## This is the function that is run when the /retrieveJobs endpoint is called, which runs
-## the Indeed Scraper and returns the JSON.
-##
-## *Currently this does not run the Indeed Scraper, as this is something we will work on
-## implementing in the workshop!!
-def getJobs():
-    data = []
-    if request.method == 'GET': # Checks if it's a GET request
-        ## This sets the data variable to a list of dictionaries, and places one dictionary,
-        ## the example dictionary below, to the list.
-        data = [dict(id='1', name='max', email='max@gmail.com')]
+@app.route("/retrieveJobs", methods=["GET"])
+def retrieve_jobs():
+    """Return scraped job listings as JSON.
 
-        ## This "JSON"ifys the dictionary list into a JSON object for returning.
-        response = jsonify(data);
+    Optional query params override the defaults defined in config.py:
+      q       - search keywords
+      l       - location
+      radius  - search radius in miles
+      pages   - number of result pages to fetch
+    """
+    try:
+        jobs = get_jobs(
+            query=request.args.get("q"),
+            location=request.args.get("l"),
+            radius=request.args.get("radius", type=int),
+            pages=request.args.get("pages", type=int),
+        )
+    except ScraperError as exc:
+        return responses.error_response(str(exc))
 
-        ## This places the HTTP status code 202 ("Accepted")
-        response.status_code = 202
-
-        ## Return the JSON object to the caller.
-        return response
+    return responses.job_list_response(jobs)
