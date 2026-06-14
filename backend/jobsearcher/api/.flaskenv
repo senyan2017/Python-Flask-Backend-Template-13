@@ -1,2 +1,2 @@
-FLASK_APP=apiBackEnd.py
-FLASK_ENV=development
+FLASK_APP=api.py
+FLASK_DEBUG=1
